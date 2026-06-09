@@ -769,6 +769,10 @@ model Job {
   failureReason       String?
   rescheduleRequested Boolean     @default(false)
 
+    // Washer live location
+    washerLat               Float?
+    washerLng               Float?
+    washerLocationUpdatedAt DateTime?
   // Timestamps
   startedAt           DateTime?
   completedAt         DateTime?
