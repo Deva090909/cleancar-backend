@@ -769,6 +769,11 @@ model Job {
   failureReason       String?
   rescheduleRequested Boolean     @default(false)
 
+// Washer live location (updated every 30s from PWA)
+    washerLat               Float?
+    washerLng               Float?
+    washerLocationUpdatedAt DateTime
+    
   // Timestamps
   startedAt           DateTime?
   completedAt         DateTime?
