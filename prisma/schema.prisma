@@ -1,0 +1,1204 @@
+// CleanCar 360° ERP — Prisma Schema v1.0
+// Runtime: Node.js 20+ | DB: PostgreSQL 15+
+// Normalized relational design — 26 models
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENUMS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CITY_MANAGER
+  SR_OPERATIONS_MANAGER
+  OPERATIONS_MANAGER
+  CLUSTER_MANAGER
+  SUPERVISOR
+  CAR_WASHER
+  TSM
+  TSE
+  CCE
+  SALES_HEAD
+  SALES_MANAGER
+  HR
+  ACCOUNTS
+  STORE_MANAGER
+  PROCUREMENT_MANAGER
+}
+
+enum AccountStatus {
+  PENDING_ONBOARDING
+  PENDING_PASSWORD
+  ACTIVE
+  LOCKED
+  SUSPENDED
+}
+
+enum EmployeeType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum EmploymentStage {
+  TEMPORARY
+  PERMANENT
+  NOT_CONVERTED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+  EXITED
+}
+
+enum SkillLevel {
+  SKILLED
+  SEMI_SKILLED
+  UNSKILLED
+}
+
+enum CustomerStatus {
+  LEAD
+  DEMO_SCHEDULED
+  ACTIVE
+  INACTIVE
+  CHURNED
+}
+
+enum LeadStatus {
+  NEW
+  ATTEMPTED
+  CALLBACK
+  INTERESTED
+  NOT_ANSWERED
+  CONVERTED
+  LOST
+  DEMO_SCHEDULED
+  DEMO_COMPLETED
+  PAYMENT_PENDING
+  REJECTED
+}
+
+enum LeadSource {
+  DIGITAL
+  BTL_REFERRAL
+  WALK_IN
+  SOCIAL_MEDIA
+  PARTNER
+  REFERRAL
+  GOOGLE_ADS
+}
+
+enum PlanType {
+  EXPRESS_WASH
+  SMART_WASH
+  ELITE_WASH
+  ELITE_2W
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  NINE_MONTHS
+  ANNUAL
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  OVERDUE
+  FAILED
+}
+
+enum JobStatus {
+  UNASSIGNED
+  ASSIGNED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+  FAILED
+}
+
+enum JobType {
+  ONE_TIME_DEMO
+  SUBSCRIPTION_DEMO
+  REGULAR
+  ADD_ON
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  LEAVE
+  WEEK_OFF
+}
+
+enum PayrollStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  PROCESSED
+  PAID
+  LOCKED
+}
+
+enum PayableType {
+  SALARY
+  VENDOR
+  STATUTORY
+  UTILITY
+  RENT
+}
+
+enum IncentiveSource {
+  DIGITAL
+  BTL
+  BULK_DEAL
+}
+
+enum TrancheStatus {
+  PENDING
+  PAID
+  FORFEITED
+}
+
+enum AdvanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISBURSED
+  CLOSED
+}
+
+enum ComplaintStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPROVE
+  REJECT
+  LOCK
+  UNLOCK
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CORE: City & Organisation
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model City {
+  id          String   @id @default(cuid())
+  code        String   @unique  // e.g. "CITY-SURAT"
+  name        String
+  state       String
+  gstStateCode String  @default("24")  // Gujarat = 24
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  employees       Employee[]
+  customers       Customer[]
+  leads           Lead[]
+  subscriptions   Subscription[]
+  jobs            Job[]
+  attendanceRecords AttendanceRecord[]
+  payrollRuns     PayrollRun[]
+  financeRevenues FinanceRevenue[]
+  financePayables FinancePayable[]
+  financeMRR      FinanceMRR[]
+  ledgerEntries   LedgerEntry[]
+  inventoryItems  InventoryItem[]
+  gstTransactions GSTTransaction[]
+  incentiveRecords IncentiveRecord[]
+  complaints      Complaint[]
+  budgets         Budget[]
+  notifications   Notification[]
+
+  @@map("cities")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  employees   Employee[]
+
+  @@map("departments")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EMPLOYEES & AUTH
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model Employee {
+  id                      String          @id  // EDB-SA-01, EDB-TSE-SUR1, etc.
+  cityId                  String
+  departmentId            String?
+
+  // Personal info
+  firstName               String
+  middleName              String?
+  lastName                String
+  fullName                String
+  dob                     String          // YYYY-MM-DD
+  gender                  String
+  bloodGroup              String?
+  maritalStatus           String          @default("Single")
+  nationality             String          @default("Indian")
+
+  // Contact
+  mobile                  String
+  email                   String
+  alternatePhone          String?
+  currentAddress          Json            // {line1, line2, city, state, pincode, country}
+  permanentAddress        Json
+  emergencyContactName    String?
+  emergencyContactPhone   String?
+  emergencyContactRelation String?
+
+  // Identity
+  aadhaarNumber           String?
+  panNumber               String?
+  passportNumber          String?
+  drivingLicense          String?
+  voterId                 String?
+  pfNumber                String?
+  esicNumber              String?
+  uanNumber               String?
+  bankAccountNumber       String?
+  bankIfsc                String?
+  bankName                String?
+
+  // Employment
+  designation             String
+  role                    Role
+  employeeType            EmployeeType    @default(FULL_TIME)
+  employmentStage         EmploymentStage @default(TEMPORARY)
+  skillLevel              SkillLevel      @default(SEMI_SKILLED)
+  dateOfJoining           String          // YYYY-MM-DD
+  confirmationDate        String?
+  probationMonths         Int             @default(3)
+  noticePeriodDays        Int             @default(30)
+  workLocation            String          // city name
+  reportingManagerId      String?
+  pinCodes                String[]        @default([])
+  status                  EmployeeStatus  @default(ACTIVE)
+
+  // Temp ID tracking
+  tempId                  String?
+  tempIdAssignedDate      String?
+  permanentIdAssignedDate String?
+  conversionDueDate       String?
+  isOverdue               Boolean         @default(false)
+  nonConversionReason     String?
+
+  // Auth
+  loginMobile             String?         @unique
+  passwordHash            String?
+  tempPin                 String?
+  accountStatus           AccountStatus   @default(PENDING_ONBOARDING)
+  onboardingPasswordSet   Boolean         @default(false)
+  failedLoginAttempts     Int             @default(0)
+  lockedUntil             DateTime?
+  lastLogin               DateTime?
+  passwordChangedAt       DateTime?
+  passwordResetOTP        String?
+  passwordResetOTPExpiry  DateTime?
+
+  // Shift
+  shiftId                 String?
+
+  // Metadata
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  // Relations
+  city                    City            @relation(fields: [cityId], references: [id])
+  department              Department?     @relation(fields: [departmentId], references: [id])
+  reportingManager        Employee?       @relation("ReportsTo", fields: [reportingManagerId], references: [id])
+  directReports           Employee[]      @relation("ReportsTo")
+  refreshTokens           RefreshToken[]
+  attendanceRecords       AttendanceRecord[]
+  payrollRuns             PayrollRun[]
+  salaryStructure         SalaryStructure?
+  leaveBalance            LeaveBalance?
+  advanceRequests         AdvanceRequest[]
+  assignedJobs            Job[]           @relation("WasherJobs")
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+
+  @@index([cityId])
+  @@index([role])
+  @@index([loginMobile])
+  @@index([status])
+  @@map("employees")
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  employeeId  String
+  token       String   @unique
+  expiresAt   DateTime
+  isRevoked   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  userAgent   String?
+  ipAddress   String?
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SALARY & PAYROLL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model SalaryStructure {
+  id                  String   @id @default(cuid())
+  employeeId          String   @unique
+  basicSalary         Float
+  hra                 Float    @default(0)
+  conveyanceAllowance Float    @default(0)
+  medicalAllowance    Float    @default(0)
+  specialAllowance    Float    @default(0)
+  ctc                 Float
+  pfApplicable        Boolean  @default(true)
+  esicApplicable      Boolean  @default(true)
+  ptApplicable        Boolean  @default(true)
+  tdsRate             Float    @default(0)
+  effectiveFrom       String   // YYYY-MM-DD
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("salary_structures")
+}
+
+model PayrollRun {
+  id                  String        @id @default(cuid())
+  employeeId          String
+  cityId              String
+  month               String        // YYYY-MM
+  periodStart         String        // YYYY-MM-DD
+  periodEnd           String        // YYYY-MM-DD
+  stateCode           String        @default("GJ")
+
+  // Earnings
+  baseSalary          Float
+  incentiveAmount     Float         @default(0)
+  addOnEarnings       Float         @default(0)
+  allowances          Float         @default(0)
+  grossSalary         Float
+
+  // Deductions
+  pf                  Float         @default(0)
+  esic                Float         @default(0)
+  pt                  Float         @default(0)
+  tds                 Float         @default(0)
+  advances            Float         @default(0)
+  penalties           Float         @default(0)
+  lateDeductions      Float         @default(0)
+  totalDeductions     Float
+
+  // Attendance
+  daysWorked          Int           @default(0)
+  totalDays           Int           @default(26)
+  presentDays         Int           @default(0)
+  lateDays            Int           @default(0)
+  leaveDays           Int           @default(0)
+
+  // Net
+  netSalary           Float
+
+  // Workflow
+  status              PayrollStatus @default(DRAFT)
+  approvedBy          String?
+  approvedAt          DateTime?
+  paidAt              DateTime?
+  paymentRef          String?
+  notes               String?
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  employee            Employee      @relation(fields: [employeeId], references: [id])
+  city                City          @relation(fields: [cityId], references: [id])
+
+  @@unique([employeeId, month])
+  @@index([cityId, month])
+  @@index([status])
+  @@map("payroll_runs")
+}
+
+model LeaveBalance {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique
+  year          Int
+  casualLeave   Float    @default(12)
+  sickLeave     Float    @default(7)
+  earnedLeave   Float    @default(15)
+  compOff       Float    @default(0)
+  lopDays       Float    @default(0)
+  updatedAt     DateTime @updatedAt
+
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("leave_balances")
+}
+
+model AdvanceRequest {
+  id              String        @id @default(cuid())
+  employeeId      String
+  type            String        // "SHORT_TERM" | "LONG_TERM"
+  amount          Float
+  tenureMonths    Int?
+  emiAmount       Float?
+  reason          String
+  status          AdvanceStatus @default(PENDING)
+  appliedDate     String        // YYYY-MM-DD
+  approvedBy      String?
+  approvedDate    String?
+  rejectedReason  String?
+  disbursedDate   String?
+  disbursedAmount Float?
+  totalPaid       Float         @default(0)
+  remainingAmount Float         @default(0)
+  missedEmis      Int           @default(0)
+  isExitSettlement Boolean     @default(false)
+  securityChequeNo String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  employee        Employee      @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("advance_requests")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ATTENDANCE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model AttendanceRecord {
+  id            String           @id @default(cuid())
+  employeeId    String
+  cityId        String
+  date          String           // YYYY-MM-DD
+  checkInTime   String?          // HH:MM:SS
+  checkOutTime  String?
+  status        AttendanceStatus @default(PRESENT)
+  hoursWorked   Float?
+  lateMinutes   Int              @default(0)
+  workMinutes   Int              @default(0)
+  overtimeMinutes Int            @default(0)
+  flag          String?          // "NONE" | "LATE" | "EARLY_EXIT"
+  gpsCheckIn    Json?            // {lat, lng, accuracy}
+  gpsCheckOut   Json?
+  fraudFlag     Boolean          @default(false)
+  fraudReason   String?
+  notes         String?
+  createdAt     DateTime         @default(now())
+
+  employee      Employee         @relation(fields: [employeeId], references: [id])
+  city          City             @relation(fields: [cityId], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([cityId, date])
+  @@index([employeeId])
+  @@map("attendance_records")
+}
+
+model PublicHoliday {
+  id        String   @id @default(cuid())
+  date      String   // YYYY-MM-DD
+  name      String
+  type      String   @default("NATIONAL")  // NATIONAL | REGIONAL | OPTIONAL
+  stateCode String?
+  createdAt DateTime @default(now())
+
+  @@unique([date, stateCode])
+  @@map("public_holidays")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CUSTOMERS & LEADS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model Customer {
+  id              String         @id @default(cuid())
+  cityId          String
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String
+  addressLine1    String         @default("")
+  addressLine2    String?
+  area            String         @default("")
+  pinCode         String         @default("")
+  vehicleCategory String?        // "Hatchback / Compact Sedan" etc.
+  vehicleBrand    String?
+  vehicleColor    String?
+  vehicleReg      String?
+  leadSource      String?
+  status          CustomerStatus @default(LEAD)
+  tags            String[]       @default([])
+  notes           String?
+  assignedTseId   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  city            City           @relation(fields: [cityId], references: [id])
+  subscriptions   Subscription[]
+  jobs            Job[]
+  leads           Lead[]
+  complaints      Complaint[]
+
+  @@index([cityId])
+  @@index([phone])
+  @@index([status])
+  @@map("customers")
+}
+
+model Lead {
+  id              String     @id @default(cuid())
+  cityId          String
+  customerId      String?    // set on conversion
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String
+  addressLine1    String?
+  area            String?
+  pinCode         String?
+  vehicleCategory String?
+  vehicleBrand    String?
+  vehicleColor    String?
+  vehicleReg      String?
+  leadSource      LeadSource @default(DIGITAL)
+  status          LeadStatus @default(NEW)
+  paymentStatus   PaymentStatus?
+  planOfInterest  PlanType?
+  assignedTseId   String?
+  priority        String     @default("NORMAL")  // URGENT | HIGH | NORMAL
+  slaStatus       String     @default("MET")     // MET | AT_RISK | BREACHED
+  attemptCount    Int        @default(0)
+  nextFollowUpAt  DateTime?
+  estimatedValue  Float      @default(0)
+  lastContactAt   DateTime?
+  notes           String?
+  tags            String[]   @default([])
+  convertedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  city            City       @relation(fields: [cityId], references: [id])
+  customer        Customer?  @relation(fields: [customerId], references: [id])
+  callHistory     CallHistory[]
+  activities      LeadActivity[]
+
+  @@index([cityId, status])
+  @@index([assignedTseId])
+  @@index([phone])
+  @@map("leads")
+}
+
+model LeadActivity {
+  id          String   @id @default(cuid())
+  leadId      String
+  type        String   // "CALL" | "DEMO" | "FOLLOW_UP" | "NOTE"
+  notes       String?
+  outcome     String?
+  performedBy String?
+  createdAt   DateTime @default(now())
+
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_activities")
+}
+
+model CallHistory {
+  id               String   @id @default(cuid())
+  leadId           String
+  calledAt         DateTime @default(now())
+  durationSeconds  Int      @default(0)
+  outcome          LeadStatus
+  notes            String?
+  addOnOffered     String?
+  bundleTierOffered String?
+  paymentLinkSent  Boolean  @default(false)
+  tseId            String?
+
+  lead             Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("call_history")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model Subscription {
+  id               String             @id @default(cuid())
+  cityId           String
+  customerId       String
+  packageType      PlanType
+  packageName      String
+  vehicleCategory  String
+  vehicleType      String             @default("4W")
+  frequency        String             @default("Daily")
+  status           SubscriptionStatus @default(ACTIVE)
+  startDate        String             // YYYY-MM-DD
+  endDate          String?
+  renewalDate      String?
+  term             Int                @default(1)    // months
+
+  // Pricing
+  basePrice        Float
+  discount         Float              @default(0)
+  finalPrice       Float
+  priceLocked      Float              // snapshot at creation — NEVER changes
+  billingCycle     BillingCycle       @default(MONTHLY)
+  paymentStatus    PaymentStatus      @default(PENDING)
+  currency         String             @default("INR")
+
+  // Service
+  addOns           String[]           @default([])
+  preferredTimeSlot String?
+
+  // Personnel
+  tseId            String?
+  supervisorId     String?
+
+  pauseHistory     Json[]             @default([])
+  cancelReason     String?
+  cancelledAt      DateTime?
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  city             City               @relation(fields: [cityId], references: [id])
+  customer         Customer           @relation(fields: [customerId], references: [id])
+  jobs             Job[]
+  incentiveRecords IncentiveRecord[]
+  financeMRR       FinanceMRR[]
+  invoices         Invoice[]
+
+  @@index([cityId, status])
+  @@index([customerId])
+  @@index([packageType])
+  @@map("subscriptions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// JOBS (Washer Execution)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model Job {
+  id                  String      @id @default(cuid())
+  cityId              String
+  customerId          String?
+  subscriptionId      String?
+  washerId            String?
+  scheduledDate       String      // YYYY-MM-DD
+  timeSlot            String
+  status              JobStatus   @default(UNASSIGNED)
+  jobType             JobType     @default(REGULAR)
+  packageName         String
+  vehicleCategory     String
+  vehicleColor        String?
+  vehicleBrand        String?
+  vehicleReg          String?
+  addressLine1        String      @default("")
+  area                String      @default("")
+  pinCode             String      @default("")
+  addOns              String[]    @default([])
+  specialInstructions String?
+
+  // QA & Verification
+  verificationStatus  String?     // "verified" | "flagged" | "failed" | "pending"
+  qualityScore        Int?
+  complianceScore     Int?
+  qaRequired          Boolean     @default(false)
+  qaAuditId           String?
+  beforePhotoUrl      String?
+  afterPhotoUrl       String?
+  supervisorVerifiedBy String?
+
+  // Failure
+  failureReason       String?
+  rescheduleRequested Boolean     @default(false)
+
+  // Timestamps
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  city                City        @relation(fields: [cityId], references: [id])
+  customer            Customer?   @relation(fields: [customerId], references: [id])
+  subscription        Subscription? @relation(fields: [subscriptionId], references: [id])
+  washer              Employee?   @relation("WasherJobs", fields: [washerId], references: [id])
+
+  @@index([cityId, scheduledDate])
+  @@index([washerId])
+  @@index([status])
+  @@map("jobs")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INCENTIVES (V6 Pool-based)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model IncentiveRecord {
+  id              String          @id @default(cuid())
+  subscriptionId  String
+  customerId      String
+  customerName    String
+  cityId          String
+  planType        String
+  vehicleCategory String
+  monthlyAmount   Float
+  term            Int             // 1, 3, 6, 9, 12
+  source          IncentiveSource @default(DIGITAL)
+  activationDate  String          // YYYY-MM-DD
+  status          String          @default("ACTIVE")  // ACTIVE | CANCELLED | COMPLETED
+  cancelledDate   String?
+  poolTotal       Float           @default(0)
+  isZeroPool      Boolean         @default(false)
+
+  // Role IDs
+  tseId           String?
+  tseName         String?
+  smId            String?
+  smName          String?
+  shId            String?
+  shName          String?
+  tsmId           String?
+  tsmName         String?
+  supervisorId    String?
+  supervisorName  String?
+
+  createdAt       DateTime        @default(now())
+
+  city            City            @relation(fields: [cityId], references: [id])
+  subscription    Subscription    @relation(fields: [subscriptionId], references: [id])
+  tranches        IncentiveTranche[]
+
+  @@index([cityId])
+  @@index([tseId])
+  @@index([tsmId])
+  @@map("incentive_records")
+}
+
+model IncentiveTranche {
+  id              String        @id @default(cuid())
+  incentiveRecordId String
+  subscriptionId  String
+  checkMonth      String        // "M1" | "M3" | "M6" | "M9" | "M12"
+  dueDate         String        // YYYY-MM-DD
+  poolAmount      Float
+  status          TrancheStatus @default(PENDING)
+  paidDate        String?
+  forfeitedReason String?
+  createdAt       DateTime      @default(now())
+
+  incentiveRecord IncentiveRecord @relation(fields: [incentiveRecordId], references: [id], onDelete: Cascade)
+  rolePayouts     RolePayout[]
+
+  @@index([incentiveRecordId])
+  @@index([dueDate])
+  @@map("incentive_tranches")
+}
+
+model RolePayout {
+  id          String        @id @default(cuid())
+  trancheId   String
+  role        String        // TSE | TSM | SM | SH | SUPERVISOR
+  employeeId  String
+  employeeName String
+  amount      Float
+  percentage  Float
+  status      TrancheStatus @default(PENDING)
+  paidDate    String?
+
+  tranche     IncentiveTranche @relation(fields: [trancheId], references: [id], onDelete: Cascade)
+
+  @@index([trancheId])
+  @@index([employeeId])
+  @@map("role_payouts")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FINANCE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model FinanceRevenue {
+  id            String   @id @default(cuid())
+  cityId        String
+  month         String   // YYYY-MM
+  subscriptionId String?
+  customerId    String?
+  type          String   @default("Subscription")
+  amount        Float
+  invoiceNo     String?
+  paymentMethod String?
+  description   String?
+  createdAt     DateTime @default(now())
+
+  city          City     @relation(fields: [cityId], references: [id])
+
+  @@index([cityId, month])
+  @@map("finance_revenues")
+}
+
+model FinanceMRR {
+  id             String   @id @default(cuid())
+  cityId         String
+  month          String   // YYYY-MM
+  subscriptionId String?
+  customerId     String?
+  revenue        Float
+  status         String   @default("Active")  // Active | Churned | Paused
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  city           City         @relation(fields: [cityId], references: [id])
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([cityId, month])
+  @@map("finance_mrr")
+}
+
+model FinancePayable {
+  id            String      @id @default(cuid())
+  cityId        String
+  type          PayableType
+  vendorName    String?
+  employeeId    String?
+  description   String
+  amount        Float
+  dueDate       String?     // YYYY-MM-DD
+  paidDate      String?
+  paymentStatus PaymentStatus @default(PENDING)
+  referenceNo   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  city          City        @relation(fields: [cityId], references: [id])
+
+  @@index([cityId])
+  @@index([paymentStatus])
+  @@map("finance_payables")
+}
+
+model LedgerEntry {
+  id            String   @id @default(cuid())
+  cityId        String
+  entryDate     String   // YYYY-MM-DD
+  accountCode   String   // 1000-1999: Assets, 4000-4999: Revenue, 5000-5999: Expenses
+  accountName   String
+  entryType     String   // DEBIT | CREDIT
+  amount        Float
+  description   String
+  referenceType String?  // Invoice | Payment | Payroll | Expense
+  referenceId   String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  city          City     @relation(fields: [cityId], references: [id])
+
+  @@index([cityId, entryDate])
+  @@index([accountCode])
+  @@map("ledger_entries")
+}
+
+model Budget {
+  id              String   @id @default(cuid())
+  cityId          String
+  month           String   // YYYY-MM
+  revenueTarget   Float
+  expenseBudget   Float
+  profitTarget    Float
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  city            City     @relation(fields: [cityId], references: [id])
+
+  @@unique([cityId, month])
+  @@map("budgets")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  subscriptionId  String?
+  customerId      String?
+  customerName    String
+  customerGstin   String?
+  cityId          String?
+  issueDate       String        // YYYY-MM-DD
+  dueDate         String?
+  items           Json          // array of line items
+  subtotal        Float
+  cgst            Float         @default(0)
+  sgst            Float         @default(0)
+  igst            Float         @default(0)
+  totalAmount     Float
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String?
+  paidAt          DateTime?
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([customerId])
+  @@index([subscriptionId])
+  @@map("invoices")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GST
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model GSTTransaction {
+  id            String   @id @default(cuid())
+  cityId        String
+  month         String   // MM
+  year          Int
+  type          String   // B2B | B2C | EXEMPT | NIL
+  invoiceNo     String?
+  invoiceDate   String?
+  partyName     String?
+  partyGstin    String?
+  taxableAmount Float
+  cgst          Float    @default(0)
+  sgst          Float    @default(0)
+  igst          Float    @default(0)
+  cess          Float    @default(0)
+  totalTax      Float
+  hsnCode       String?
+  description   String?
+  isRCM         Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  city          City     @relation(fields: [cityId], references: [id])
+
+  @@index([cityId, year, month])
+  @@map("gst_transactions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INVENTORY
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model InventoryItem {
+  id            String   @id @default(cuid())
+  cityId        String
+  itemName      String
+  category      String   // "Cleaning Supplies" | "Equipment" | "Consumables" | "Tools"
+  unit          String   // L | Kg | Pcs | Box
+  centralStock  Float    @default(0)
+  supervisorStock Float  @default(0)
+  washerStock   Float    @default(0)
+  reorderLevel  Float    @default(5)
+  costPerUnit   Float?
+  supplierName  String?
+  isActive      Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  city          City     @relation(fields: [cityId], references: [id])
+  transactions  StockTransaction[]
+
+  @@index([cityId])
+  @@map("inventory_items")
+}
+
+model StockTransaction {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  type            String   // "IN" | "OUT" | "TRANSFER" | "ADJUSTMENT"
+  quantity        Float
+  fromLocation    String?  // "CENTRAL" | "SUPERVISOR" | "WASHER"
+  toLocation      String?
+  performedBy     String?
+  referenceId     String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  item            InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([inventoryItemId])
+  @@map("stock_transactions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPLAINTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model Complaint {
+  id            String          @id @default(cuid())
+  cityId        String
+  customerId    String?
+  subscriptionId String?
+  jobId         String?
+  source        String          @default("APP")  // APP | CALL | WHATSAPP | WALK_IN
+  category      String          // "Quality" | "Timing" | "Staff Behavior" | "Billing"
+  description   String
+  status        ComplaintStatus @default(OPEN)
+  priority      String          @default("MEDIUM")
+  assignedTo    String?
+  resolvedBy    String?
+  resolvedAt    DateTime?
+  resolutionNotes String?
+  satisfactionRating Int?       // 1-5
+  escalatedAt   DateTime?
+  escalatedTo   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  city          City            @relation(fields: [cityId], references: [id])
+  customer      Customer?       @relation(fields: [customerId], references: [id])
+
+  @@index([cityId, status])
+  @@map("complaints")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model Notification {
+  id            String   @id @default(cuid())
+  cityId        String?
+  employeeId    String?
+  type          String   // "INFO" | "WARNING" | "ALERT" | "ACTION_REQUIRED"
+  channel       String   // "IN_APP" | "SMS" | "EMAIL" | "WHATSAPP"
+  title         String
+  body          String
+  data          Json?
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  sentAt        DateTime?
+  failedAt      DateTime?
+  failReason    String?
+  createdAt     DateTime @default(now())
+
+  city          City?    @relation(fields: [cityId], references: [id])
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, isRead])
+  @@index([cityId])
+  @@map("notifications")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUDIT LOG
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  action       AuditAction
+  entity       String      // "Employee" | "Subscription" | "Payroll" etc.
+  entityId     String?
+  actorId      String?
+  actorName    String?
+  actorRole    String?
+  oldValue     Json?
+  newValue     Json?
+  ipAddress    String?
+  userAgent    String?
+  cityId       String?
+  description  String?
+  createdAt    DateTime    @default(now())
+
+  actor        Employee?   @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLAN MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model PlanTier {
+  id               String   @id @default(cuid())
+  name             PlanType
+  displayName      String
+  vehicleCategory  String
+  baseMonthlyPrice Float
+  costPerWash      Float
+  washesPerMonth   Int      @default(26)
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([name, vehicleCategory])
+  @@map("plan_tiers")
+}
+
+model PlanAddon {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String?
+  hatchbackPrice Float @default(0)
+  suvPrice    Float    @default(0)
+  luxuryPrice Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("plan_addons")
+}
