@@ -4,7 +4,7 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps
 RUN npm install -g @nestjs/cli
 COPY . .
-RUN chmod +x node_modules/.bin/prisma && npx prisma generate
+RUN npx --yes prisma generate
 RUN nest build
 RUN ls -la dist/ && echo "BUILD SUCCESS"
 EXPOSE 3000
