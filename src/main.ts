@@ -15,12 +15,37 @@ async function bootstrap() {
       'http://localhost:4173',
       'https://cleancar-v13-deploy-amit.vercel.app',
       'https://cleancar-frontend.vercel.app',
+      'https://cleancar-frontend-git-main-deva5454.vercel.app',
       'https://249carwashing.genxa.in',
       ...(process.env.FRONTEND_URLS?.split(',') ?? []),
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-city-id'],
     credentials: true,
+  });
+
+  // Manual CORS middleware as fallback (handles Railway edge proxy stripping headers)
+  app.use((req: any, res: any, next: any) => {
+    const origin = req.headers.origin;
+    const allowed = [
+      'http://localhost:5173',
+      'http://localhost:4173',
+      'https://cleancar-v13-deploy-amit.vercel.app',
+      'https://cleancar-frontend.vercel.app',
+      'https://cleancar-frontend-git-main-deva5454.vercel.app',
+      'https://249carwashing.genxa.in',
+      ...(process.env.FRONTEND_URLS?.split(',') ?? []),
+    ];
+    if (origin && allowed.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-city-id');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
   });
 
   // Global prefix
@@ -64,5 +89,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀  CleanCar backend running on http://localhost:${port}/api/v1`);
 }
-
 bootstrap();
