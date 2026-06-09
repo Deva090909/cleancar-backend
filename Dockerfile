@@ -9,3 +9,5 @@ RUN nest build
 RUN ls -la dist/ && echo "BUILD SUCCESS"
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+
+# force cache clear 2026-06-09 22:28:26
