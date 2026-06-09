@@ -33,5 +33,12 @@ export class JobsController {
   updateStatus(@Param("id") id: string, @Body("status") status: any, @Body() extras: any) { return this.svc.updateStatus(id, status, extras); }
 
   @Patch(":id/complete")
-  complete(@Param("id") id: string, @Body() dto: any) { return this.svc.completeWithQA(id, dto); }
+  complete(@Param(":id") id: string, @Body() dto: any) { return this.svc.completeWithQA(id, dto); }
+
+  @Patch(":id/location")
+  updateLocation(@Param(":id") id: string, @Body() dto: any) { return this.svc.updateWasherLocation(id, dto); }
+
+  @Get(":id/location")
+  getLocation(@Param(":id") id: string) { return this.svc.getWasherLocation(id); }
 }
+

@@ -43,6 +43,26 @@ export class JobsService {
     return this.prisma.job.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date(), qualityScore: dto.qualityScore, verificationStatus: dto.verificationStatus ?? "pending", beforePhotoUrl: dto.beforePhotoUrl, afterPhotoUrl: dto.afterPhotoUrl } });
   }
 
+  async updateWasherLocation(jobId: string, dto: { lat: number; lng: number; accuracy?: number; timestamp?: string }) {
+    return this.prisma.job.update({
+      where: { id: jobId },
+      data: {
+        washerLat: dto.lat,
+        washerLng: dto.lng,
+        washerLocationUpdatedAt: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+      },
+    });
+  }
+
+  async getWasherLocation(jobId: string) {
+    const job = await this.prisma.job.findUnique({
+      where: { id: jobId },
+      select: { washerLat: true, washerLng: true, washerLocationUpdatedAt: true, washerId: true, status: true },
+    });
+    if (!job) throw new NotFoundException(`Job ${jobId} not found`);
+    return job;
+  }
+
   async getWasherDashboard(washerId: string, date: string) {
     const jobs = await this.prisma.job.findMany({ where: { washerId, scheduledDate: date }, orderBy: { timeSlot: "asc" } });
     const total = jobs.length;
@@ -51,3 +71,4 @@ export class JobsService {
     return { date, total, completed, remaining: total - completed, inProgress, jobs };
   }
 }
+
